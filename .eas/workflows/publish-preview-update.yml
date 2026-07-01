@@ -1,0 +1,8 @@
+name: Publish Preview Update
+
+jobs:
+  publish_update:
+    type: update
+    params:
+      branch: preview
+      message: Live update for thesis defense
