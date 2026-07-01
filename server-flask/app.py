@@ -94,7 +94,11 @@ def bootstrap_app() -> dict:
         seed_result['datasetInventorySync'] = sync_dataset_tiles_to_inventory()
         from delivery_seed import seed_scheduled_deliveries
 
-        seed_result['seedDeliveries'] = seed_scheduled_deliveries()
+        try:
+            seed_result['seedDeliveries'] = seed_scheduled_deliveries()
+        except Exception as delivery_error:
+            seed_result['seedDeliveries'] = {'status': 'skipped', 'message': str(delivery_error)}
+            print('  Delivery seed skipped:', delivery_error, flush=True)                                        
         from inspection_seed import backfill_inspection_batch_ids, seed_inspection_records
         from notification_seed import seed_management_notifications, seed_warehouse_notifications
 
