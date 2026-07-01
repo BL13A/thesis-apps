@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT_DIR / '.env')
 
-API_PORT = int(os.getenv('API_PORT', '3000'))
+API_PORT = int(os.getenv('PORT', os.getenv('API_PORT', '3000')))
 JWT_SECRET = os.getenv('JWT_SECRET', 'tilevision-dev-secret-change-in-production')
 JWT_EXPIRES_IN = os.getenv('JWT_EXPIRES_IN', '7d')
 DEFAULT_PASSWORD = 'password123'
@@ -45,3 +45,5 @@ MYSQL_CONFIG = {
     'database': os.getenv('MYSQL_DATABASE', 'tilevision'),
     'charset': 'utf8mb4',
 }
+if os.getenv('MYSQL_SSL', 'false').lower() == 'true':
+    MYSQL_CONFIG['ssl'] = {}

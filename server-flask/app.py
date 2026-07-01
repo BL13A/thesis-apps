@@ -76,14 +76,13 @@ def bootstrap_app() -> dict:
         ensure_ai_directories()
         from backend.services.ai_recognition_service import ensure_valid_production_model
 
-        model_status = ensure_valid_production_model()
-        print(
-            f'  YOLO model: {model_status.get("status")} '
-            f'({", ".join(model_status.get("classNames", []))})',
-            flush=True,
-        )
-        if model_status.get('message'):
-            print(f'  {model_status["message"]}', flush=True)
+        try:
+            model_status = ensure_valid_production_model()
+            print('  YOLO model status:', model_status, flush=True)
+        except Exception as model_error:
+            model_status = {'status': 'unavailable', 'message': str(model_error)}
+            print('  YOLO model unavailable:', model_error, flush=True)
+            print('  Local AI recognize disabled; Roboflow analysis unaffected.', flush=True)
         init_database()
         seed_result = seed_database_if_empty()
         backfilled_ids = backfill_missing_employee_ids()
