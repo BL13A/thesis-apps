@@ -44,6 +44,9 @@ MYSQL_CONFIG = {
     'password': os.getenv('MYSQL_PASSWORD', ''),
     'database': os.getenv('MYSQL_DATABASE', 'tilevision'),
     'charset': 'utf8mb4',
+    'connect_timeout': 10,
+    'read_timeout': 15,
+    'write_timeout': 15,
 }
 if os.getenv('MYSQL_SSL', 'false').lower() == 'true':
     MYSQL_CONFIG['ssl'] = {}

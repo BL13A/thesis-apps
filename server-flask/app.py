@@ -102,27 +102,23 @@ def bootstrap_app() -> dict:
         from inspection_seed import backfill_inspection_batch_ids, seed_inspection_records
         from notification_seed import seed_management_notifications, seed_warehouse_notifications
 
-        seed_result['warehouseNotifications'] = seed_warehouse_notifications()
-        seed_result['managementNotifications'] = seed_management_notifications()
-
-        seed_result['inspectionRecords'] = seed_inspection_records()
-        from supplier_seed import ensure_suppliers_seeded
-
-        seed_result['suppliers'] = ensure_suppliers_seeded()
-        batch_backfill = backfill_inspection_batch_ids()
-        if any(batch_backfill.values()):
-            seed_result['inspectionBatchIdsBackfilled'] = batch_backfill
-        from migrate_recognition_logs import migrate_defect_recognition_logs
-
-        seed_result['recognitionLogMigration'] = migrate_defect_recognition_logs()
-        seed_result['aiPaths'] = get_ai_paths_summary()
-        backfill_result = backfill_notifications_for_inspections()
-        if backfill_result.get('created', 0) > 0:
-            print(
-                f'  Notifications: backfilled {backfill_result["created"]} '
-                f'inspection alert(s) in MySQL',
-                flush=True,
-            )
+        try:
+            seed_result['warehouseNotifications'] = seed_warehouse_notifications()
+            seed_result['managementNotifications'] = seed_management_notifications()
+            seed_result['inspectionRecords'] = seed_inspection_records()
+            from supplier_seed import ensure_suppliers_seeded
+            seed_result['suppliers'] = ensure_suppliers_seeded()
+            batch_backfill = backfill_inspection_batch_ids()
+            if any(batch_backfill.values()):
+                seed_result['inspectionBatchIdsBackfilled'] = batch_backfill
+            from migrate_recognition_logs import migrate_defect_recognition_logs
+            seed_result['recognitionLogMigration'] = migrate_defect_recognition_logs()
+            seed_result['aiPaths'] = get_ai_paths_summary()
+            backfill_result = backfill_notifications_for_inspections()
+            if backfill_result.get('created', 0) > 0:
+                print('  Notifications: backfilled', backfill_result['created'], 'inspection alert(s) in MySQL', flush=True)
+        except Exception as seed_error:
+            print('  Warning: some demo seed steps were skipped:', seed_error, flush=True)                                                                                                                                                                                            
         return seed_result
     except Exception as error:
         print('\n[ERROR] Cannot connect to MySQL.')
