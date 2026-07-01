@@ -1,0 +1,189 @@
+{
+  "info": {
+    "name": "TileVision E2E Tests",
+    "description": "Automated end-to-end test flow for TileVision API.\n\nRun with:\n```\nnpm run api:test\n```\nor Postman Collection Runner on this folder.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "accessToken", "value": "" },
+    { "key": "inspectionId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 Health Check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('API is healthy', () => {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.ok).to.eql(true);",
+              "  pm.expect(json.database).to.eql('mysql');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      }
+    },
+    {
+      "name": "02 Login Warehouse",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Has access token', () => pm.expect(json.accessToken).to.be.a('string'));",
+              "pm.collectionVariables.set('accessToken', json.accessToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"rafael.benavidez@tilevision.com\",\"password\":\"password123\"}"
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "03 List Inspections (Warehouse)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Returns inspections array', () => pm.expect(json.inspections).to.be.an('array'));",
+              "pm.test('Warehouse sees own records only', () => {",
+              "  json.inspections.forEach(i => pm.expect(i.inspectedBy).to.eql('user-warehouse-001'));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+        },
+        "method": "GET",
+        "url": "{{baseUrl}}/api/inspections"
+      }
+    },
+    {
+      "name": "04 Create Inspection",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.collectionVariables.set('batchId', 'E2E-' + Date.now());"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', () => pm.response.to.have.status(201));",
+              "const json = pm.response.json();",
+              "pm.test('Inspection created', () => {",
+              "  pm.expect(json.inspection.id).to.be.a('string');",
+              "  pm.expect(json.inspection.qaStatus).to.eql('Pending');",
+              "});",
+              "pm.collectionVariables.set('inspectionId', json.inspection.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"batchId\": \"{{batchId}}\",\n  \"supplierName\": \"E2E Test Supplier\",\n  \"tileType\": \"Ceramic\",\n  \"tileSize\": \"600x600 mm\",\n  \"quantity\": \"50\",\n  \"expectedDimension\": \"600x600 mm\",\n  \"result\": \"Manual\",\n  \"defectType\": \"Test Defect\",\n  \"confidenceScore\": 0.8,\n  \"imageUri\": \"file://e2e-test.jpg\"\n}"
+        },
+        "url": "{{baseUrl}}/api/inspections"
+      }
+    },
+    {
+      "name": "05 Login QA Officer",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('accessToken', json.accessToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"qa@tilevision.com\",\"password\":\"password123\"}"
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "06 QA Approve Inspection",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Approved', () => {",
+              "  pm.expect(json.inspection.qaStatus).to.eql('Passed');",
+              "  pm.expect(json.inspection.inventoryStatus).to.eql('Available');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+        },
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"qaStatus\":\"Passed\",\"qaRemarks\":\"E2E test approval\",\"reviewerName\":\"Maria Santos\"}"
+        },
+        "url": "{{baseUrl}}/api/inspections/{{inspectionId}}/qa"
+      }
+    }
+  ]
+}

@@ -1,22 +1,64 @@
 {
   "name": "tilevision-mobile",
   "version": "1.0.0",
-  "main": "index.ts",
-  "dependencies": {
-    "expo": "~56.0.9",
-    "expo-status-bar": "~56.0.4",
-    "react": "19.2.3",
-    "react-native": "0.85.3"
-  },
-  "devDependencies": {
-    "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
-  },
+  "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "api:install": "pip install -r server-flask/requirements.txt",
+    "ai:install": "pip install -r training/requirements.txt",
+    "ai:bootstrap": "python training/bootstrap_inventory_classes.py",
+    "ai:prepare": "python training/prepare_dataset.py",
+    "ai:train": "python training/train.py",
+    "ai:ensure-model": "python -c \"import sys; sys.path.insert(0,'.'); from backend.services.ai_recognition_service import ensure_valid_production_model; print(ensure_valid_production_model())\"",
+    "ai:predict": "python training/predict.py",
+    "api:dev": "python server-flask/app.py",
+    "api:start": "python server-flask/run_production.py",
+    "api:dev:node": "npm run start --prefix server",
+    "api:test": "newman run server/postman/TileVision-E2E.postman_collection.json -e server/postman/TileVision-Local.postman_environment.json --color on",
+    "smtp:test": "python server-flask/scripts/test_smtp.py",
+    "user:add": "python server-flask/scripts/add_email_user.py",
+    "roboflow:test": "python server-flask/scripts/test_roboflow.py",
+    "notifications:backfill": "python -c \"import sys; sys.path.insert(0,'server-flask'); from dotenv import load_dotenv; load_dotenv(); from database import init_database; from notification_backfill import backfill_notifications_for_inspections; init_database(); print(backfill_notifications_for_inspections())\""
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "^56.0.14",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "clsx": "^2.1.1",
+    "expo": "~54.0.0",
+    "expo-camera": "~17.0.0",
+    "expo-constants": "~18.0.13",
+    "expo-device": "~8.0.10",
+    "expo-file-system": "~19.0.23",
+    "expo-image-picker": "~17.0.0",
+    "expo-linear-gradient": "~15.0.0",
+    "expo-linking": "~8.0.0",
+    "expo-notifications": "~0.32.17",
+    "expo-router": "~6.0.0",
+    "expo-secure-store": "~15.0.7",
+    "expo-status-bar": "~3.0.0",
+    "lucide-react-native": "^1.17.0",
+    "react": "19.1.0",
+    "react-dom": "^19.1.0",
+    "react-hook-form": "^7.77.0",
+    "react-native": "0.81.5",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-paper": "^5.15.3",
+    "react-native-reanimated": "~4.1.0",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-svg": "15.12.1",
+    "react-native-vector-icons": "^10.3.0",
+    "react-native-web": "^0.21.2",
+    "react-native-worklets": "0.5.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "babel-preset-expo": "~54.0.0",
+    "newman": "^6.2.2",
+    "typescript": "~5.9.2"
   },
   "private": true
 }

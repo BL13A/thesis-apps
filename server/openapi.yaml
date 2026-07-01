@@ -1,0 +1,353 @@
+openapi: 3.0.3
+info:
+  title: TileVision API
+  description: JWT + RBAC backend for TileVision Mobile (warehouse inspections & QA reviews).
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: http://192.168.8.124:3000
+    description: LAN (physical device)
+tags:
+  - name: Health
+  - name: Auth
+  - name: Inspections
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: API health check
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profile returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/auth/permissions:
+    get:
+      tags: [Auth]
+      summary: Current user permissions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Permissions returned
+  /api/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change password (authenticated)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password updated
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password to default (demo)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset processed
+  /api/inspections:
+    get:
+      tags: [Inspections]
+      summary: List inspections (RBAC filtered)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Inspection list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InspectionListResponse'
+    post:
+      tags: [Inspections]
+      summary: Submit a new inspection
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectionInput'
+      responses:
+        '201':
+          description: Inspection created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InspectionResponse'
+  /api/inspections/{id}:
+    get:
+      tags: [Inspections]
+      summary: Get inspection by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InspectionId'
+      responses:
+        '200':
+          description: Inspection found
+        '403':
+          description: Access denied
+        '404':
+          description: Not found
+  /api/inspections/{id}/qa:
+    patch:
+      tags: [Inspections]
+      summary: QA approve or reject inspection
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InspectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QaReviewRequest'
+      responses:
+        '200':
+          description: Review saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InspectionResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    InspectionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Unauthorized:
+      description: Missing or invalid token
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        service:
+          type: string
+        auth:
+          type: string
+        database:
+          type: string
+          example: mysql
+        databaseName:
+          type: string
+          example: tilevision
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: rafael.benavidez@tilevision.com
+        password:
+          type: string
+          example: password123
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+        expiresIn:
+          type: string
+        user:
+          $ref: '#/components/schemas/PublicUser'
+        permissions:
+          type: array
+          items:
+            type: string
+    MeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/PublicUser'
+        permissions:
+          type: array
+          items:
+            type: string
+    PublicUser:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        employeeId:
+          type: string
+        department:
+          type: string
+        accountStatus:
+          type: string
+    InspectionListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        inspections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Inspection'
+    InspectionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        inspection:
+          $ref: '#/components/schemas/Inspection'
+    InspectionInput:
+      type: object
+      required:
+        - batchId
+        - supplierName
+        - tileType
+        - tileSize
+        - quantity
+        - expectedDimension
+        - result
+        - defectType
+        - confidenceScore
+      properties:
+        batchId:
+          type: string
+        supplierName:
+          type: string
+        tileType:
+          type: string
+        tileSize:
+          type: string
+        quantity:
+          type: string
+        expectedDimension:
+          type: string
+        imageUri:
+          type: string
+        result:
+          type: string
+          enum: [Passed, Rejected, Manual, Defective]
+        defectType:
+          type: string
+        confidenceScore:
+          type: number
+        sizeValidation:
+          type: string
+        inventoryStatus:
+          type: string
+    QaReviewRequest:
+      type: object
+      required: [qaStatus]
+      properties:
+        qaStatus:
+          type: string
+          enum: [Passed, Rejected]
+        qaRemarks:
+          type: string
+        reviewerName:
+          type: string
+    Inspection:
+      type: object
+      properties:
+        id:
+          type: string
+        batchId:
+          type: string
+        date:
+          type: string
+          format: date-time
+        supplierName:
+          type: string
+        tileType:
+          type: string
+        result:
+          type: string
+        qaStatus:
+          type: string
+        inventoryStatus:
+          type: string
+        inspectedBy:
+          type: string
+        inspectedByName:
+          type: string

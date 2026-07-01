@@ -1,0 +1,6 @@
+path: C:\Users\yruam\OneDrive\Desktop\hwhew\TileVision-Mobile\tile_dataset
+train: images/train
+val: images/val
+names:
+  0: Ceramic
+  1: Porcelain
