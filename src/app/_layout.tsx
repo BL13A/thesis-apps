@@ -7,6 +7,7 @@ import { paperTheme } from '@/constants/theme';
 import { AuthProvider } from '@/hooks/useAuth';
 import { WarehouseProvider } from '@/hooks/useWarehouse';
 import { NotificationsProvider } from '@/hooks/useNotifications';
+import { InspectionsProvider } from '@/hooks/useInspections';
 
 export default function RootLayout() {
   return (
@@ -15,13 +16,15 @@ export default function RootLayout() {
         <AuthProvider>
           <WarehouseProvider>
             <NotificationsProvider>
-            <StatusBar style="light" />
-            <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="login" />
-              <Stack.Screen name="reset-password" />
-              <Stack.Screen name="(tabs)" />
-            </Stack>
+              <InspectionsProvider>
+                <StatusBar style="light" />
+                <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="login" />
+                  <Stack.Screen name="reset-password" />
+                  <Stack.Screen name="(tabs)" />
+                </Stack>
+              </InspectionsProvider>
             </NotificationsProvider>
           </WarehouseProvider>
         </AuthProvider>
