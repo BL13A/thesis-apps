@@ -1,27 +1,60 @@
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import socket
+
+import requests
+import urllib3.util.connection as urllib3_connection
 
 from brand_theme import COLORS
 from config import (
     APP_DEEP_LINK_SCHEME,
+    BREVO_API_KEY,
+    BREVO_SENDER_EMAIL,
+    BREVO_SENDER_NAME,
     RESET_PASSWORD_URL,
-    SMTP_FROM_EMAIL,
-    SMTP_FROM_NAME,
-    SMTP_HOST,
-    SMTP_PASSWORD,
-    SMTP_PORT,
-    SMTP_USER,
 )
+
+# Render's free tier resolves some hosts to an IPv6 address it has no
+# outbound route for, which surfaces as "[Errno 101] Network is unreachable"
+# even though the API endpoint itself is reachable over IPv4. Forcing
+# urllib3 (used by requests) to only resolve/connect over IPv4 fixes it.
+def _force_ipv4_only():
+    return socket.AF_INET
+
+
+urllib3_connection.allowed_gai_family = _force_ipv4_only
+
+BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
 
 
 def is_smtp_configured() -> bool:
-    return bool(
-        SMTP_USER
-        and SMTP_PASSWORD
-        and SMTP_FROM_EMAIL
-        and SMTP_PASSWORD != 'PASTE_GMAIL_APP_PASSWORD_HERE'
+    """Name kept for backwards compatibility with existing callers/routes.
+    This actually checks whether the Brevo HTTP email API is configured.
+    Render's free tier blocks outbound SMTP ports (25/465/587), so emails
+    are sent through Brevo's HTTPS API instead of smtplib."""
+    return bool(BREVO_API_KEY and BREVO_SENDER_EMAIL)
+
+
+def _send_via_brevo(to_email: str, subject: str, html: str, plain: str) -> None:
+    if not is_smtp_configured():
+        raise RuntimeError('Email is not configured. Set BREVO_API_KEY (and BREVO_SENDER_EMAIL) in .env')
+
+    response = requests.post(
+        BREVO_API_URL,
+        headers={
+            'api-key': BREVO_API_KEY,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        },
+        json={
+            'sender': {'name': BREVO_SENDER_NAME, 'email': BREVO_SENDER_EMAIL},
+            'to': [{'email': to_email}],
+            'subject': subject,
+            'htmlContent': html,
+            'textContent': plain,
+        },
+        timeout=30,
     )
+    if response.status_code >= 300:
+        raise RuntimeError(f'Brevo send failed ({response.status_code}): {response.text}')
 
 
 def build_reset_email_html(name: str, reset_url: str, app_link: str) -> str:
@@ -130,15 +163,7 @@ def build_welcome_email_html(name: str, email: str, password: str, role: str, lo
 
 
 def send_welcome_email(to_email: str, name: str, password: str, role: str) -> None:
-    if not is_smtp_configured():
-        raise RuntimeError('SMTP is not configured. Set SMTP_USER and SMTP_PASSWORD in .env')
-
     login_url = RESET_PASSWORD_URL.rsplit('/', 1)[0] if '/' in RESET_PASSWORD_URL else RESET_PASSWORD_URL
-
-    message = MIMEMultipart('alternative')
-    message['Subject'] = 'Welcome to TileVision — Your account is ready'
-    message['From'] = f'{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>'
-    message['To'] = to_email
 
     plain = (
         f'Welcome to TileVision\n\n'
@@ -149,30 +174,14 @@ def send_welcome_email(to_email: str, name: str, password: str, role: str) -> No
         f'Sign in here: {login_url}\n\n'
         f'Please change your password after your first login.\n'
     )
-    message.attach(MIMEText(plain, 'plain', 'utf-8'))
-    message.attach(MIMEText(
-        build_welcome_email_html(name, to_email, password, role, login_url), 'html', 'utf-8'
-    ))
+    html = build_welcome_email_html(name, to_email, password, role, login_url)
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_FROM_EMAIL, [to_email], message.as_string())
+    _send_via_brevo(to_email, 'Welcome to TileVision — Your account is ready', html, plain)
 
 
 def send_password_reset_email(to_email: str, name: str, token: str) -> None:
-    if not is_smtp_configured():
-        raise RuntimeError('SMTP is not configured. Set SMTP_USER and SMTP_PASSWORD in .env')
-
     reset_url = f'{RESET_PASSWORD_URL}?token={token}'
     app_link = f'{APP_DEEP_LINK_SCHEME}://reset-password?token={token}'
-
-    message = MIMEMultipart('alternative')
-    message['Subject'] = 'TileVision — Reset your password'
-    message['From'] = f'{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>'
-    message['To'] = to_email
 
     plain = (
         f'TileVision Password Reset\n\n'
@@ -181,12 +190,6 @@ def send_password_reset_email(to_email: str, name: str, token: str) -> None:
         f'{reset_url}\n\n'
         f'Open in app: {app_link}\n'
     )
-    message.attach(MIMEText(plain, 'plain', 'utf-8'))
-    message.attach(MIMEText(build_reset_email_html(name, reset_url, app_link), 'html', 'utf-8'))
+    html = build_reset_email_html(name, reset_url, app_link)
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_FROM_EMAIL, [to_email], message.as_string())
+    _send_via_brevo(to_email, 'TileVision — Reset your password', html, plain)

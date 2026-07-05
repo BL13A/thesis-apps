@@ -311,3 +311,17 @@ def update_inspection_qa_review(inspection_id: str, updates: dict) -> dict | Non
     finally:
         connection.close()
     return find_inspection_by_id(inspection_id)
+
+
+def update_inspection_image(inspection_id: str, image_uri: str) -> dict | None:
+    connection = get_connection()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'UPDATE inspections SET image_uri = %s WHERE id = %s',
+                (image_uri, inspection_id),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+    return find_inspection_by_id(inspection_id)

@@ -24,6 +24,13 @@ SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 SMTP_FROM_NAME = os.getenv('SMTP_FROM_NAME', 'TileVision')
 SMTP_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', SMTP_USER)
 
+# Render's free tier blocks outbound SMTP ports (25/465/587), so transactional
+# emails are sent through Brevo's HTTPS API instead of raw SMTP. Set
+# BREVO_API_KEY (and verify BREVO_SENDER_EMAIL as a sender in Brevo) to enable.
+BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
+BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL', SMTP_FROM_EMAIL)
+BREVO_SENDER_NAME = os.getenv('BREVO_SENDER_NAME', SMTP_FROM_NAME)
+
 ROBOFLOW_API_URL = os.getenv('ROBOFLOW_API_URL', 'https://serverless.roboflow.com')
 ROBOFLOW_API_KEY = os.getenv('ROBOFLOW_API_KEY', '')
 ROBOFLOW_WORKSPACE = os.getenv('ROBOFLOW_WORKSPACE', 'aurora-magdalene-benavidez')
