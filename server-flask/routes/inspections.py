@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, timezone
 
 from flask import Blueprint, g, jsonify, request
@@ -67,6 +68,22 @@ def _request_body() -> dict:
     return request.get_json(silent=True) or {}
 
 
+def _extract_uploaded_image_data_uri() -> str | None:
+    """Read the actual uploaded photo (multipart 'image' field) and encode it as a
+    data URI so it can be stored directly in the image_uri column and rendered by
+    the web dashboard. Previously this only stored the upload's filename string
+    (e.g. literally "tile.jpg"), which discarded the real photo entirely."""
+    upload = request.files.get('image')
+    if not upload:
+        return None
+    raw = upload.read()
+    if not raw:
+        return None
+    mime_type = upload.mimetype or 'image/jpeg'
+    encoded = base64.b64encode(raw).decode('ascii')
+    return f'data:{mime_type};base64,{encoded}'
+
+
 @inspections_bp.post('/')
 @authenticate
 @require_permission('submit_inspection')
@@ -103,8 +120,7 @@ def create_inspection():
         'tileSize': str(body['tileSize']).strip(),
         'quantity': str(body['quantity']).strip(),
         'expectedDimension': str(body['expectedDimension']).strip(),
-        'imageUri': body.get('imageUri')
-        or (request.files.get('image').filename if request.files.get('image') else None),
+        'imageUri': body.get('imageUri') or _extract_uploaded_image_data_uri(),
         'result': body['result'],
         'defectType': body['defectType'],
         'confidenceScore': float(body['confidenceScore']),
