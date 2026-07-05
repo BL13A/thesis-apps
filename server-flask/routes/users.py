@@ -4,6 +4,7 @@ import bcrypt
 from flask import Blueprint, jsonify, request
 
 from auth_middleware import authenticate, require_permission
+from email_service import is_smtp_configured, send_welcome_email
 from repositories import (
     MANAGED_USER_ROLES,
     backfill_missing_employee_ids,
@@ -74,7 +75,22 @@ def create_user():
         'department': department,
         'accountStatus': body.get('accountStatus') or 'Active',
     })
-    return jsonify({'success': True, 'user': to_public_user(created)}), 201
+
+    welcome_email_sent = False
+    if is_smtp_configured():
+        try:
+            send_welcome_email(email, name, DEFAULT_PASSWORD, role)
+            welcome_email_sent = True
+        except Exception as email_error:
+            # Account creation should not fail just because the welcome email
+            # couldn't be sent (SMTP hiccup, bad address, etc).
+            print(f'  Welcome email failed for {email}: {email_error}', flush=True)
+
+    return jsonify({
+        'success': True,
+        'user': to_public_user(created),
+        'welcomeEmailSent': welcome_email_sent,
+    }), 201
 
 
 @users_bp.patch('/<user_id>')
