@@ -1,4 +1,7 @@
+import socket
+
 import requests
+import urllib3.util.connection as urllib3_connection
 
 from brand_theme import COLORS
 from config import (
@@ -8,6 +11,16 @@ from config import (
     BREVO_SENDER_NAME,
     RESET_PASSWORD_URL,
 )
+
+# Render's free tier resolves some hosts to an IPv6 address it has no
+# outbound route for, which surfaces as "[Errno 101] Network is unreachable"
+# even though the API endpoint itself is reachable over IPv4. Forcing
+# urllib3 (used by requests) to only resolve/connect over IPv4 fixes it.
+def _force_ipv4_only():
+    return socket.AF_INET
+
+
+urllib3_connection.allowed_gai_family = _force_ipv4_only
 
 BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
 
