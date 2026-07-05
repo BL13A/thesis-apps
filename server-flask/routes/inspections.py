@@ -11,6 +11,7 @@ from repositories import (
     find_user_by_id,
     insert_inspection,
     list_inspections_for_auth,
+    update_inspection_image,
     update_inspection_qa_review,
 )
 
@@ -158,4 +159,23 @@ def qa_review(inspection_id: str):
     )
 
     notify_after_qa_review(updated, g.auth['userId'])
+    return jsonify({'success': True, 'inspection': updated})
+
+
+@inspections_bp.route('/<inspection_id>/image', methods=['PATCH'])
+@authenticate
+def set_inspection_image(inspection_id: str):
+    if not has_permission(g.auth, 'view_all_inspections'):
+        return jsonify({'success': False, 'error': 'You cannot update this inspection.'}), 403
+
+    record = find_inspection_by_id(inspection_id)
+    if not record:
+        return jsonify({'success': False, 'error': 'Inspection not found.'}), 404
+
+    body = request.get_json(silent=True) or {}
+    image_uri = str(body.get('imageUri') or '').strip()
+    if not image_uri:
+        return jsonify({'success': False, 'error': 'imageUri is required.'}), 400
+
+    updated = update_inspection_image(inspection_id, image_uri)
     return jsonify({'success': True, 'inspection': updated})
