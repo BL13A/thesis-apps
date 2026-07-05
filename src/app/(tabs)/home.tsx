@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeftRight,
   Boxes,
+  ClipboardCheck,
   Package,
   ScanSearch,
   Truck,
@@ -127,6 +128,11 @@ export default function HomeScreen() {
             label="Scan Tile"
             icon={ScanSearch}
             onPress={() => router.push('/(tabs)/scan')}
+          />
+          <QuickActionCard
+            label="New Inspection"
+            icon={ClipboardCheck}
+            onPress={() => router.push('/(tabs)/new-inspection' as Href)}
           />
           <QuickActionCard
             label="View Inventory"
