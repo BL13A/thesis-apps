@@ -52,12 +52,18 @@
           "icon": "./assets/icon.png",
           "color": "#3b82f6"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": false
+          }
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "owner": "blitzz121312",
-    "extra": { "eas": { "projectId": "264dfe1f-05a9-430f-8bad-4a3c49bc3b14" } }
+    }
   }
 }
