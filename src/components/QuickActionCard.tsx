@@ -27,8 +27,8 @@ export function QuickActionCard({ label, icon: Icon, onPress }: QuickActionCardP
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
-    minWidth: '46%',
+    flexGrow: 1,
+    flexBasis: '46%',
     backgroundColor: colors.glass,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
