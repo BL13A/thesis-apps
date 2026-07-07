@@ -24,7 +24,6 @@
     "notifications:backfill": "python -c \"import sys; sys.path.insert(0,'server-flask'); from dotenv import load_dotenv; load_dotenv(); from database import init_database; from notification_backfill import backfill_notifications_for_inspections; init_database(); print(backfill_notifications_for_inspections())\""
   },
   "dependencies": {
-    "@expo/metro-runtime": "^56.0.14",
     "@react-native-async-storage/async-storage": "2.2.0",
     "clsx": "^2.1.1",
     "expo": "~54.0.0",
@@ -42,7 +41,7 @@
     "expo-status-bar": "~3.0.0",
     "lucide-react-native": "^1.17.0",
     "react": "19.1.0",
-    "react-dom": "^19.1.0",
+    "react-dom": "19.1.0",
     "react-hook-form": "^7.77.0",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
