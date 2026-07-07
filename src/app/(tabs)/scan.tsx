@@ -256,13 +256,13 @@ export default function ScanScreen() {
 
       const intervalId = setInterval(() => {
 
-        void processLiveFrame();
+        void 0; /* live auto-scan disabled: use Upload */
 
       }, SCAN_INTERVAL_MS);
 
 
 
-      void processLiveFrame();
+      void 0; /* live auto-scan disabled: use Upload */
 
 
 
@@ -651,7 +651,7 @@ export default function ScanScreen() {
 
                 loading={saving}
 
-                disabled={!canScan || saving || !inspectResult}
+                disabled={true}
 
               />
 
@@ -687,7 +687,7 @@ export default function ScanScreen() {
 
             <Text style={styles.waitingText}>
 
-              Point the camera at a tile. Detection runs every {SCAN_INTERVAL_MS / 1000}s.
+              Tap Upload below to pick a tile photo and scan it.
 
             </Text>
 
