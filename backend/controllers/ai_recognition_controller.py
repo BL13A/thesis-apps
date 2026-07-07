@@ -34,6 +34,12 @@ SERVER_FLASK_DIR = Path(__file__).resolve().parents[2] / 'server-flask'
 if str(SERVER_FLASK_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_FLASK_DIR))
 
+try:
+    # Non-torch fallback recognizer (color/catalog match) for hosts without ultralytics
+    from recognition_service import recognize_tile_from_image as _color_recognize
+except Exception:  # pragma: no cover
+    _color_recognize = None
+
 
 def _score_label_against_tile(label: str, tile: dict) -> int:
     normalized_label = normalize_label(label)
@@ -142,6 +148,70 @@ def get_ai_model_status() -> dict:
     return status
 
 
+def _recognize_via_color_fallback(image_base64: str, tiles: list[dict]) -> dict[str, Any]:
+    """Torch-free recognition: match the tile to the catalog by dominant color."""
+    if _color_recognize is None:
+        raise ModelNotReadyError(
+            'No valid Ceramic Tile YOLO model found and color fallback is unavailable.'
+        )
+
+    result = _color_recognize(image_base64, tiles)
+    matched = result.get('matchedTile')
+    conf = round(float(result.get('confidenceScore') or 0.0), 4)
+    name = result.get('recognizedName') or 'Unknown Tile'
+    ttype = result.get('tileType') or 'Unknown'
+    provider = result.get('provider') or 'opencv-color-match'
+
+    raw = image_base64.split(',', 1)[-1] if image_base64.startswith('data:') else image_base64
+    annotated = f'data:image/jpeg;base64,{raw}'
+    width, height = 1, 1
+    try:
+        import base64 as _b64
+        import cv2
+        import numpy as np
+        arr = np.frombuffer(_b64.b64decode(raw), dtype=np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if img is not None:
+            height, width = img.shape[:2]
+    except Exception:  # pragma: no cover
+        pass
+
+    stock_status = matched.get('stockStatus') if matched else 'Unknown'
+    return {
+        'recognizedName': name,
+        'detectedClass': ttype,
+        'predictedCategory': ttype,
+        'tileType': ttype,
+        'confidenceScore': conf,
+        'matchedTile': matched,
+        'availableStock': matched['stockQuantity'] if matched else 0,
+        'stockStatus': stock_status,
+        'warehouseLocation': matched.get('warehouseLocation', '') if matched else '',
+        'reorderLevel': matched.get('lowStockThreshold', 0) if matched else 0,
+        'lowStock': stock_status in ('Low Stock', 'Out of Stock'),
+        'productImage': matched.get('imageUri') if matched else None,
+        'provider': provider,
+        'modelPath': 'color-fallback',
+        'topPredictions': [],
+        'inventoryMatched': matched is not None,
+        'modelNeedsRetrain': False,
+        'annotatedImage': annotated,
+        'annotatedImageBase64': raw,
+        'boxes': [],
+        'imageSize': {'width': int(width), 'height': int(height)},
+        'tile_name': ttype,
+        'product_name': name,
+        'tile_type': ttype,
+        'confidence': conf,
+        'annotated_image': annotated,
+        'inventory_id': matched['id'] if matched else '',
+        'stock_quantity': matched['stockQuantity'] if matched else 0,
+        'warehouse_location': matched.get('warehouseLocation', '') if matched else '',
+        'reorder_level': matched.get('lowStockThreshold', 0) if matched else 0,
+        'annotated_image_path': None,
+    }
+
+
 def recognize_tile_with_inventory(
     image_base64: str,
     tiles: list[dict],
@@ -153,8 +223,9 @@ def recognize_tile_with_inventory(
 
     try:
         inference = run_yolo_inference(image_base64)
-    except ModelNotReadyError as error:
-        raise error
+    except Exception as yolo_error:  # YOLO runtime unavailable on this host
+        print(f'[AI RECOGNIZE] YOLO unavailable, using color fallback: {yolo_error}', flush=True)
+        return _recognize_via_color_fallback(image_base64, tiles)
 
     matched_tile, resolved_label, resolved_confidence = _resolve_inventory_match(inference, tiles)
     if is_defect_class_label(resolved_label):
