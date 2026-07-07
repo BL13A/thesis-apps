@@ -75,6 +75,7 @@ export default function ScanScreen() {
   const [facing, setFacing] = useState<'back' | 'front'>('back');
 
   const [isScanning, setIsScanning] = useState(true);
+  const [cameraReady, setCameraReady] = useState(false);
 
   const [frameProcessing, setFrameProcessing] = useState(false);
 
@@ -194,7 +195,7 @@ export default function ScanScreen() {
 
         quality: 0.5,
 
-        skipProcessing: true,
+        skipProcessing: false,
 
       });
 
@@ -278,7 +279,7 @@ export default function ScanScreen() {
 
     const allowed = await ensureCameraPermission();
 
-    if (!allowed || !cameraRef.current) return;
+    if (!allowed || !cameraRef.current || !cameraReady) return;
 
 
 
@@ -294,7 +295,7 @@ export default function ScanScreen() {
 
         quality: 0.75,
 
-        skipProcessing: true,
+        skipProcessing: false,
 
       });
 
@@ -563,7 +564,7 @@ export default function ScanScreen() {
 
             <View style={styles.cameraWrap} onLayout={onPreviewLayout}>
 
-              <CameraView ref={cameraRef} style={styles.camera} facing={facing} />
+              <CameraView ref={cameraRef} style={styles.camera} facing={facing} onCameraReady={() => setCameraReady(true)} />
 
               {overlayBoxes.length > 0 && overlayImageSize.width > 0 ? (
 
@@ -651,7 +652,7 @@ export default function ScanScreen() {
 
                 loading={saving}
 
-                disabled={true}
+                disabled={!canScan || saving || !cameraReady}
 
               />
 
@@ -687,7 +688,7 @@ export default function ScanScreen() {
 
             <Text style={styles.waitingText}>
 
-              Tap Upload below to pick a tile photo and scan it.
+              Aim the camera at a tile, then tap Confirm to scan it.
 
             </Text>
 
