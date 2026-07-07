@@ -492,6 +492,110 @@ def _inspect_message(detected_tiles: list[dict]) -> str:
     return f'{tile_type} tile recognized. Review the inventory match below.'
 
 
+def _inspect_via_color_fallback(
+    image_base64: str,
+    tiles: list[dict],
+    *,
+    base_url: str = '',
+) -> dict[str, Any]:
+    """Torch-free inspect payload built from catalog color matching."""
+    if _color_recognize is None:
+        raise ModelNotReadyError(
+            'No valid Ceramic Tile YOLO model found and color fallback is unavailable.'
+        )
+
+    result = _color_recognize(image_base64, tiles)
+    matched = result.get('matchedTile')
+    conf = round(float(result.get('confidenceScore') or 0.0), 4)
+    ttype = (matched.get('tileType') if matched else result.get('tileType')) or 'Ceramic'
+
+    raw = image_base64.split(',', 1)[-1] if image_base64.startswith('data:') else image_base64
+    annotated = f'data:image/jpeg;base64,{raw}'
+    width, height = 1, 1
+    try:
+        import base64 as _b64
+        import cv2
+        import numpy as np
+        arr = np.frombuffer(_b64.b64decode(raw), dtype=np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if img is not None:
+            height, width = img.shape[:2]
+    except Exception:  # pragma: no cover
+        pass
+
+    margin_x = int(width * 0.08)
+    margin_y = int(height * 0.08)
+    box = {
+        'x1': float(margin_x),
+        'y1': float(margin_y),
+        'x2': float(width - margin_x),
+        'y2': float(height - margin_y),
+        'raw_label': ttype,
+        'label': ttype,
+        'confidence': conf,
+    }
+    inventory_matched = matched is not None
+    status = _warehouse_status(conf, 'Valid', inventory_matched=inventory_matched)
+    detected = {
+        'tile_id': 'tile_0',
+        'predicted_type': ttype,
+        'confidence': conf,
+        'color': matched.get('color', '-') if matched else '-',
+        'pattern': _infer_pattern(matched),
+        'surface_finish': matched.get('finish', '-') if matched else '-',
+        'size_category': _format_size_category(matched.get('size') if matched else None),
+        'width_mm': None,
+        'height_mm': None,
+        'dimension_status': 'Valid',
+        'status': status,
+        'bounding_box_label': f'{ttype} {conf:.0%}',
+        'inventory_id': matched['id'] if matched else None,
+        'sku_id': matched.get('sku') if matched else None,
+    }
+
+    ranked = _rank_inventory_tiles(
+        ttype,
+        conf,
+        tiles,
+        exclude_ids={matched['id']} if matched else None,
+        tile_type=ttype,
+    )
+    entries = ([(_match_percentage(ttype, conf, matched), matched)] if matched else []) + ranked
+    seen: set[str] = set()
+    rec_tiles: list[dict[str, Any]] = []
+    for pct, tile in entries:
+        tid = tile.get('id')
+        if not tid or tid in seen:
+            continue
+        seen.add(tid)
+        rec_tiles.append(_tile_to_recommendation(tile, pct))
+
+    top = [
+        {
+            'rank': i + 1,
+            'sku_id': it['sku_id'],
+            'tile_id': it.get('tile_id'),
+            'tile_name': it['tile_name'],
+            'match_percentage': it['match_percentage'],
+        }
+        for i, it in enumerate(rec_tiles[:3])
+    ]
+
+    return {
+        'image_url': annotated,
+        'annotated_image_url': annotated,
+        'detected_tiles': [detected],
+        'recommended_tiles': rec_tiles,
+        'top_recommendations': top,
+        'message': _inspect_message([detected]),
+        'boxes': [box],
+        'image_size': {'width': int(width), 'height': int(height)},
+        'provider': result.get('provider') or 'opencv-color-match',
+        'model_path': 'color-fallback',
+        'annotated_image': annotated,
+    }
+
+
 def inspect_tile_with_inventory(
     image_base64: str,
     tiles: list[dict],
@@ -505,7 +609,12 @@ def inspect_tile_with_inventory(
     if not tiles:
         raise ValueError('No tile products in inventory catalog.')
 
-    inference = run_yolo_inference(image_base64)
+    try:
+        inference = run_yolo_inference(image_base64)
+    except Exception as yolo_error:  # YOLO runtime unavailable on this host
+        print(f'[AI INSPECT] YOLO unavailable, using color fallback: {yolo_error}', flush=True)
+        return _inspect_via_color_fallback(image_base64, tiles, base_url=base_url)
+
     matched_tile, resolved_label, resolved_confidence = _resolve_inventory_match(inference, tiles)
     if is_defect_class_label(resolved_label):
         resolved_label = inference.category
