@@ -8,7 +8,6 @@ import {
 
   Alert,
 
-  Image,
   LayoutChangeEvent,
 
   ScrollView,
@@ -59,7 +58,7 @@ import { sanitizeTileDisplayLabel } from '@/utils/tileLabels';
 
 
 
-const SCAN_INTERVAL_MS = 1500;
+const SCAN_INTERVAL_MS = 2500;
 
 
 
@@ -77,8 +76,6 @@ export default function ScanScreen() {
 
   const [isScanning, setIsScanning] = useState(true);
   const [cameraReady, setCameraReady] = useState(false);
-  const [frozenPhoto, setFrozenPhoto] = useState<{ uri: string; width: number; height: number } | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
 
   const [frameProcessing, setFrameProcessing] = useState(false);
 
@@ -178,7 +175,7 @@ export default function ScanScreen() {
 
   const processLiveFrame = useCallback(async () => {
 
-    if (processingRef.current || !cameraRef.current || !isScanning) {
+    if (processingRef.current || !cameraRef.current || !cameraReady || !isScanning) {
 
       return;
 
@@ -250,7 +247,7 @@ export default function ScanScreen() {
 
     useCallback(() => {
 
-      if (!isScanning || !cameraPermission?.granted || modelStatus?.modelExists === false) {
+      if (!isScanning || !cameraReady || !cameraPermission?.granted || modelStatus?.modelExists === false) {
 
         return undefined;
 
@@ -260,103 +257,23 @@ export default function ScanScreen() {
 
       const intervalId = setInterval(() => {
 
-        void 0; /* live auto-scan disabled: use Upload */
+        void processLiveFrame();
 
       }, SCAN_INTERVAL_MS);
 
 
 
-      void 0; /* live auto-scan disabled: use Upload */
+      void processLiveFrame();
 
 
 
       return () => clearInterval(intervalId);
 
-    }, [isScanning, cameraPermission?.granted, modelStatus?.modelExists, processLiveFrame]),
+    }, [isScanning, cameraReady, cameraPermission?.granted, modelStatus?.modelExists, processLiveFrame]),
 
   );
 
 
-
-  const handlePauseFreeze = async () => {
-    if (frozenPhoto) {
-      setFrozenPhoto(null);
-      setConfirmed(false);
-      setInspectResult(null);
-      setResult(null);
-      setError(null);
-      return;
-    }
-    const allowed = await ensureCameraPermission();
-    if (!allowed || !cameraRef.current || !cameraReady) return;
-    try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.75 });
-      if (photo?.uri) {
-        setFrozenPhoto({ uri: photo.uri, width: photo.width ?? 0, height: photo.height ?? 0 });
-        setConfirmed(false);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to freeze frame.');
-    }
-  };
-
-  const uploadFrozen = async () => {
-    if (!frozenPhoto) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const response = await inspectTileImage(frozenPhoto.uri, { saveLog: true });
-      applyInspect(response.inspect, response.recognition, {
-        width: frozenPhoto.width,
-        height: frozenPhoto.height,
-      });
-      await Promise.all([
-        refreshRecognitionLogs({ silent: true }),
-        refreshDashboard({ silent: true }),
-      ]);
-      Alert.alert('Match Found', 'Matching tile found and saved to warehouse history.');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to find matching tile.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const captureAndRecognize = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      let uri = frozenPhoto?.uri;
-      let width = frozenPhoto?.width ?? 0;
-      let height = frozenPhoto?.height ?? 0;
-      if (!uri) {
-        const allowed = await ensureCameraPermission();
-        if (!allowed || !cameraRef.current || !cameraReady) {
-          setSaving(false);
-          return;
-        }
-        const photo = await cameraRef.current.takePictureAsync({ quality: 0.75 });
-        if (!photo?.uri) {
-          setSaving(false);
-          return;
-        }
-        uri = photo.uri;
-        width = photo.width ?? 0;
-        height = photo.height ?? 0;
-      }
-      const response = await inspectTileImage(uri, { saveLog: true });
-      applyInspect(response.inspect, response.recognition, { width, height });
-      await Promise.all([
-        refreshRecognitionLogs({ silent: true }),
-        refreshDashboard({ silent: true }),
-      ]);
-      Alert.alert('Match Found', 'Matching tile found and saved to warehouse history.');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to recognize tile.');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const saveCurrentScan = async () => {
 
@@ -647,11 +564,7 @@ export default function ScanScreen() {
 
             <View style={styles.cameraWrap} onLayout={onPreviewLayout}>
 
-              {frozenPhoto ? (
-                <Image source={{ uri: frozenPhoto.uri }} style={styles.camera} />
-              ) : (
-                <CameraView ref={cameraRef} style={styles.camera} facing={facing} onCameraReady={() => setCameraReady(true)} />
-              )}
+              <CameraView ref={cameraRef} style={styles.camera} facing={facing} onCameraReady={() => setCameraReady(true)} />
 
               {overlayBoxes.length > 0 && overlayImageSize.width > 0 ? (
 
@@ -711,35 +624,35 @@ export default function ScanScreen() {
 
               <PrimaryButton
 
-                label={frozenPhoto ? 'Resume' : 'Pause'}
+                label={isScanning ? 'Pause' : 'Resume'}
 
-                icon={frozenPhoto ? Play : Pause}
+                icon={isScanning ? Pause : Play}
 
                 variant="secondary"
 
-                onPress={() => void handlePauseFreeze()}
+                onPress={() => setIsScanning((current) => !current)}
 
                 style={styles.actionButton}
 
-                disabled={!canScan || saving || (!frozenPhoto && !cameraReady)}
+                disabled={!canScan || saving}
 
               />
 
               <PrimaryButton
 
-                label={saving ? 'Scanning...' : 'Confirm'}
+                label={saving ? 'Confirming...' : 'Confirm'}
 
                 icon={CheckCircle}
 
                 variant="secondary"
 
-                onPress={() => void captureAndRecognize()}
+                onPress={() => void saveCurrentScan()}
 
                 style={styles.actionButton}
 
                 loading={saving}
 
-                disabled={!canScan || saving}
+                disabled={!canScan || saving || !inspectResult}
 
               />
 
@@ -755,7 +668,7 @@ export default function ScanScreen() {
 
               onPress={() => void pickFromGallery()}
 
-              disabled={saving}
+              disabled={frameProcessing || saving}
 
             />
 
@@ -775,7 +688,7 @@ export default function ScanScreen() {
 
             <Text style={styles.waitingText}>
 
-              Aim the camera at a tile, then tap Confirm to scan it.
+              Point the camera at a tile. Detection runs every {SCAN_INTERVAL_MS / 1000}s.
 
             </Text>
 
