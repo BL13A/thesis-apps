@@ -300,6 +300,9 @@ def migrate_schema():
             for statement in [
                 'ALTER TABLE tiles ADD COLUMN supplier_name VARCHAR(255) NULL',
                 'ALTER TABLE tiles ADD COLUMN warehouse_location VARCHAR(128) NULL',
+                'ALTER TABLE recognition_logs MODIFY image_uri LONGTEXT NULL',
+                'ALTER TABLE inspections MODIFY image_uri LONGTEXT NULL',
+                'ALTER TABLE tiles MODIFY image_uri LONGTEXT NULL',
             ]:
                 try:
                     cursor.execute(statement)
