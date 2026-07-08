@@ -15,6 +15,8 @@ interface DetectionBoxOverlayProps {
   layoutSize: Size;
   fallbackLabel?: string;
   fallbackConfidence?: number;
+  color?: string;
+  fillColor?: string;
 }
 
 export function DetectionBoxOverlay({
@@ -23,6 +25,8 @@ export function DetectionBoxOverlay({
   layoutSize,
   fallbackLabel,
   fallbackConfidence,
+  color = '#22c55e',
+  fillColor = 'rgba(34, 197, 94, 0.12)',
 }: DetectionBoxOverlayProps) {
   if (!layoutSize.width || !imageSize.width) {
     return null;
@@ -69,15 +73,15 @@ export function DetectionBoxOverlay({
               y={y}
               width={width}
               height={height}
-              stroke="#22c55e"
+              stroke={color}
               strokeWidth={2}
-              fill="rgba(34, 197, 94, 0.12)"
+              fill={fillColor}
             />
             {label ? (
               <SvgText
                 x={x + 4}
                 y={Math.max(y - 6, 14)}
-                fill="#22c55e"
+                fill={color}
                 fontSize={12}
                 fontWeight="bold"
               >
