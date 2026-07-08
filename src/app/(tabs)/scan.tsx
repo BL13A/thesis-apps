@@ -322,6 +322,42 @@ export default function ScanScreen() {
     }
   };
 
+  const captureAndRecognize = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      let uri = frozenPhoto?.uri;
+      let width = frozenPhoto?.width ?? 0;
+      let height = frozenPhoto?.height ?? 0;
+      if (!uri) {
+        const allowed = await ensureCameraPermission();
+        if (!allowed || !cameraRef.current || !cameraReady) {
+          setSaving(false);
+          return;
+        }
+        const photo = await cameraRef.current.takePictureAsync({ quality: 0.75 });
+        if (!photo?.uri) {
+          setSaving(false);
+          return;
+        }
+        uri = photo.uri;
+        width = photo.width ?? 0;
+        height = photo.height ?? 0;
+      }
+      const response = await inspectTileImage(uri, { saveLog: true });
+      applyInspect(response.inspect, response.recognition, { width, height });
+      await Promise.all([
+        refreshRecognitionLogs({ silent: true }),
+        refreshDashboard({ silent: true }),
+      ]);
+      Alert.alert('Match Found', 'Matching tile found and saved to warehouse history.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to recognize tile.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveCurrentScan = async () => {
 
     const allowed = await ensureCameraPermission();
@@ -691,19 +727,19 @@ export default function ScanScreen() {
 
               <PrimaryButton
 
-                label={confirmed ? 'Confirmed' : 'Confirm'}
+                label={saving ? 'Scanning...' : 'Confirm'}
 
                 icon={CheckCircle}
 
                 variant="secondary"
 
-                onPress={() => setConfirmed(true)}
+                onPress={() => void captureAndRecognize()}
 
                 style={styles.actionButton}
 
                 loading={saving}
 
-                disabled={!frozenPhoto || confirmed || saving}
+                disabled={!canScan || saving}
 
               />
 
@@ -717,9 +753,9 @@ export default function ScanScreen() {
 
               variant="outline"
 
-              onPress={() => void uploadFrozen()}
+              onPress={() => void pickFromGallery()}
 
-              disabled={!frozenPhoto || !confirmed || saving}
+              disabled={saving}
 
             />
 
