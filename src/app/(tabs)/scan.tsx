@@ -666,9 +666,9 @@ export default function ScanScreen() {
 
               variant="outline"
 
-              onPress={() => void pickFromGallery()}
+              onPress={() => void saveCurrentScan()}
 
-              disabled={frameProcessing || saving}
+              disabled={!canScan || saving || !cameraReady}
 
             />
 
