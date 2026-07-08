@@ -98,8 +98,43 @@ def inspect_tile():
             'userName': user['name'] if user else g.auth.get('email', 'Unknown'),
         })
 
+    defects = None
+    if save_log:
+        try:
+            from roboflow_service import analyze_tile_image, is_roboflow_configured
+            if is_roboflow_configured():
+                analysis = analyze_tile_image(image_base64)
+                ov = analysis.get('overlay') or {}
+                iw = float(ov.get('imageWidth') or 1) or 1.0
+                ih = float(ov.get('imageHeight') or 1) or 1.0
+                boxes_out = []
+                for d in ov.get('defects') or []:
+                    left = float(d.get('left') or 0)
+                    top = float(d.get('top') or 0)
+                    w = float(d.get('width') or 0)
+                    h = float(d.get('height') or 0)
+                    boxes_out.append({
+                        'x1': left * iw,
+                        'y1': top * ih,
+                        'x2': (left + w) * iw,
+                        'y2': (top + h) * ih,
+                        'label': d.get('label') or d.get('class') or 'Defect',
+                        'confidence': float(d.get('confidence') or 0),
+                    })
+                ir = analysis.get('inspectionResult') or {}
+                defects = {
+                    'result': ir.get('result'),
+                    'defectType': ir.get('defectType'),
+                    'confidence': ir.get('confidenceScore') or 0,
+                    'boxes': boxes_out,
+                    'imageSize': {'width': int(iw), 'height': int(ih)},
+                }
+        except Exception as _defect_err:
+            print(f'[INSPECT] defect detection skipped: {_defect_err}', flush=True)
+
     return jsonify({
         'success': True,
         **payload,
         'log': log,
+        'defects': defects,
     })
