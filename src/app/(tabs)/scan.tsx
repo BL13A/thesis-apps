@@ -8,6 +8,7 @@ import {
 
   Alert,
 
+  Image,
   LayoutChangeEvent,
 
   ScrollView,
@@ -76,6 +77,8 @@ export default function ScanScreen() {
 
   const [isScanning, setIsScanning] = useState(true);
   const [cameraReady, setCameraReady] = useState(false);
+  const [frozenPhoto, setFrozenPhoto] = useState<{ uri: string; width: number; height: number } | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
 
   const [frameProcessing, setFrameProcessing] = useState(false);
 
@@ -274,6 +277,50 @@ export default function ScanScreen() {
   );
 
 
+
+  const handlePauseFreeze = async () => {
+    if (frozenPhoto) {
+      setFrozenPhoto(null);
+      setConfirmed(false);
+      setInspectResult(null);
+      setResult(null);
+      setError(null);
+      return;
+    }
+    const allowed = await ensureCameraPermission();
+    if (!allowed || !cameraRef.current || !cameraReady) return;
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.75 });
+      if (photo?.uri) {
+        setFrozenPhoto({ uri: photo.uri, width: photo.width ?? 0, height: photo.height ?? 0 });
+        setConfirmed(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to freeze frame.');
+    }
+  };
+
+  const uploadFrozen = async () => {
+    if (!frozenPhoto) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await inspectTileImage(frozenPhoto.uri, { saveLog: true });
+      applyInspect(response.inspect, response.recognition, {
+        width: frozenPhoto.width,
+        height: frozenPhoto.height,
+      });
+      await Promise.all([
+        refreshRecognitionLogs({ silent: true }),
+        refreshDashboard({ silent: true }),
+      ]);
+      Alert.alert('Match Found', 'Matching tile found and saved to warehouse history.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to find matching tile.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const saveCurrentScan = async () => {
 
@@ -564,7 +611,11 @@ export default function ScanScreen() {
 
             <View style={styles.cameraWrap} onLayout={onPreviewLayout}>
 
-              <CameraView ref={cameraRef} style={styles.camera} facing={facing} onCameraReady={() => setCameraReady(true)} />
+              {frozenPhoto ? (
+                <Image source={{ uri: frozenPhoto.uri }} style={styles.camera} />
+              ) : (
+                <CameraView ref={cameraRef} style={styles.camera} facing={facing} onCameraReady={() => setCameraReady(true)} />
+              )}
 
               {overlayBoxes.length > 0 && overlayImageSize.width > 0 ? (
 
@@ -624,35 +675,35 @@ export default function ScanScreen() {
 
               <PrimaryButton
 
-                label={isScanning ? 'Pause' : 'Resume'}
+                label={frozenPhoto ? 'Resume' : 'Pause'}
 
-                icon={isScanning ? Pause : Play}
+                icon={frozenPhoto ? Play : Pause}
 
                 variant="secondary"
 
-                onPress={() => setIsScanning((current) => !current)}
+                onPress={() => void handlePauseFreeze()}
 
                 style={styles.actionButton}
 
-                disabled={!canScan || saving}
+                disabled={!canScan || saving || (!frozenPhoto && !cameraReady)}
 
               />
 
               <PrimaryButton
 
-                label={saving ? 'Confirming...' : 'Confirm'}
+                label={confirmed ? 'Confirmed' : 'Confirm'}
 
                 icon={CheckCircle}
 
                 variant="secondary"
 
-                onPress={() => void saveCurrentScan()}
+                onPress={() => setConfirmed(true)}
 
                 style={styles.actionButton}
 
                 loading={saving}
 
-                disabled={!canScan || saving || !cameraReady}
+                disabled={!frozenPhoto || confirmed || saving}
 
               />
 
@@ -666,9 +717,9 @@ export default function ScanScreen() {
 
               variant="outline"
 
-              onPress={() => void saveCurrentScan()}
+              onPress={() => void uploadFrozen()}
 
-              disabled={!canScan || saving || !cameraReady}
+              disabled={!frozenPhoto || !confirmed || saving}
 
             />
 
