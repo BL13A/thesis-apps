@@ -440,6 +440,13 @@ export interface TileInspectResponse {
   message: string;
   boxes?: YoloDetectionBox[];
   imageSize?: ImageSize;
+  defects?: {
+    result?: string;
+    defectType?: string;
+    confidence?: number;
+    boxes: YoloDetectionBox[];
+    imageSize?: ImageSize;
+  } | null;
   logId?: string;
 }
 
