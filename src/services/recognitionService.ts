@@ -138,6 +138,7 @@ interface InspectApiResponse {
   message: string;
   boxes?: TileInspectResponse['boxes'];
   image_size?: TileInspectResponse['imageSize'];
+  defects?: TileInspectResponse['defects'];
   log?: RecognitionLog | null;
 }
 
@@ -240,6 +241,7 @@ export async function inspectTileImage(
     message: result.message,
     boxes: result.boxes,
     imageSize: result.image_size,
+    defects: result.defects ?? null,
     logId: result.log?.id,
   };
 
