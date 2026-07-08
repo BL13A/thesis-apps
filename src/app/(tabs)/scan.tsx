@@ -584,6 +584,24 @@ export default function ScanScreen() {
 
               ) : null}
 
+              {inspectResult?.defects?.boxes?.length && inspectResult.defects.imageSize?.width ? (
+
+                <DetectionBoxOverlay
+
+                  boxes={inspectResult.defects.boxes}
+
+                  imageSize={inspectResult.defects.imageSize}
+
+                  layoutSize={previewLayout}
+
+                  color={"#ef4444"}
+
+                  fillColor={"rgba(239, 68, 68, 0.15)"}
+
+                />
+
+              ) : null}
+
               {frameProcessing ? (
 
                 <View style={styles.processingBadge}>
