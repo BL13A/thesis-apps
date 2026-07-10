@@ -58,7 +58,7 @@ import { sanitizeTileDisplayLabel } from '@/utils/tileLabels';
 
 
 
-const SCAN_INTERVAL_MS = 2500;
+const SCAN_INTERVAL_MS = 900;
 
 
 
@@ -75,6 +75,8 @@ export default function ScanScreen() {
   const [facing, setFacing] = useState<'back' | 'front'>('back');
 
   const [isScanning, setIsScanning] = useState(true);
+
+  const scanningRef = useRef(true);
   const [cameraReady, setCameraReady] = useState(false);
 
   const [frameProcessing, setFrameProcessing] = useState(false);
@@ -175,7 +177,7 @@ export default function ScanScreen() {
 
   const processLiveFrame = useCallback(async () => {
 
-    if (processingRef.current || !cameraRef.current || !cameraReady || !isScanning) {
+    if (processingRef.current || !cameraRef.current || !cameraReady || !scanningRef.current) {
 
       return;
 
@@ -193,7 +195,7 @@ export default function ScanScreen() {
 
       const photo = await cameraRef.current.takePictureAsync({
 
-        quality: 0.5,
+        quality: 0.3,
 
         skipProcessing: false,
 
@@ -219,7 +221,11 @@ export default function ScanScreen() {
 
 
 
+      if (!scanningRef.current) return;
+
       const response = await inspectTileImage(photo.uri, { saveLog: false });
+
+      if (!scanningRef.current) return;
 
       applyInspect(response.inspect, response.recognition, captureSize);
 
@@ -293,7 +299,7 @@ export default function ScanScreen() {
 
       const photo = await cameraRef.current.takePictureAsync({
 
-        quality: 0.75,
+        quality: 0.6,
 
         skipProcessing: false,
 
@@ -331,17 +337,13 @@ export default function ScanScreen() {
 
 
 
-      await Promise.all([
-
-        refreshRecognitionLogs({ silent: true }),
-
-        refreshDashboard({ silent: true }),
-
-      ]);
-
-
-
       Alert.alert('Scan Confirmed', 'Recognition result saved to warehouse history.');
+
+
+
+      void refreshRecognitionLogs({ silent: true });
+
+      void refreshDashboard({ silent: true });
 
     } catch (err) {
 
@@ -648,7 +650,7 @@ export default function ScanScreen() {
 
                 variant="secondary"
 
-                onPress={() => setIsScanning((current) => !current)}
+                onPress={() => setIsScanning((current) => { const next = !current; scanningRef.current = next; if (!next) setFrameProcessing(false); return next; })}
 
                 style={styles.actionButton}
 
