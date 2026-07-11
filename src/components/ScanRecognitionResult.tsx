@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { borderRadius, colors, spacing } from '@/constants/theme';
 import type { TileInspectResponse } from '@/types';
 import { getStatusTone } from '@/utils/status';
+import { formatConfidence } from '@/utils/inventory';
 
 interface ScanRecognitionResultProps {
   inspect: TileInspectResponse;
@@ -48,6 +49,33 @@ export function ScanRecognitionResult({ inspect }: ScanRecognitionResultProps) {
           </View>
         ) : null}
       </GlassCard>
+
+      {inspect.defects ? (
+        <GlassCard style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Defect Detection</Text>
+            {inspect.defects.result ? (
+              <StatusBadge
+                label={inspect.defects.result}
+                variant={getStatusTone(inspect.defects.result)}
+                size="sm"
+              />
+            ) : null}
+          </View>
+          <View style={styles.defectRow}>
+            <Text style={styles.defectLabel}>Defect Type</Text>
+            <Text style={styles.defectValue}>{inspect.defects.defectType ?? 'None detected'}</Text>
+          </View>
+          <View style={styles.defectRow}>
+            <Text style={styles.defectLabel}>Confidence</Text>
+            <Text style={styles.defectValue}>{formatConfidence(inspect.defects.confidence ?? 0)}</Text>
+          </View>
+          <View style={styles.defectRow}>
+            <Text style={styles.defectLabel}>Defects Found</Text>
+            <Text style={styles.defectValue}>{inspect.defects.boxes?.length ?? 0}</Text>
+          </View>
+        </GlassCard>
+      ) : null}
 
       <AlertCard
         title="Warehouse Status"
@@ -102,6 +130,14 @@ const styles = StyleSheet.create({
   wrap: { gap: spacing.xl },
   card: { marginBottom: spacing.xl },
   section: { marginBottom: spacing.xl },
+  defectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+  },
+  defectLabel: { fontSize: 14, color: colors.textSecondary },
+  defectValue: { fontSize: 14, fontWeight: '600', color: colors.text },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -175,3 +211,4 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
 });
+
